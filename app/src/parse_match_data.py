@@ -6,6 +6,134 @@ MAIN_PAGE = "https://tff.org/default.aspx?pageID=545"
 LAST_VALID_SEASON_URL = "http://www.tff.org/default.aspx?pageID=561"
 
 
+class Match:
+    def __init__(self, match_url):
+        self.match_url = match_url
+        self.match_soup = BeautifulSoup(requests.get(match_url).content, "html.parser")
+        self.home_team = None
+        self.away_team = None
+        self.referee = None
+        self.day = None
+        self.time = None
+        self.goals = None
+        self.subs = None
+        self.red_cards = None
+
+    def parse_match_data(self):
+        self.get_teams()
+        self.get_referee()
+        self.get_goals()
+        self.get_date()
+        self.get_subs()
+        self.get_red_cards()
+    
+    def get_teams(self):
+        teams_tag = self.match_soup.find_all('a', {'id': re.compile(r'Takim.$')})
+        team_one, team_two = teams_tag[0].text, teams_tag[1].text
+
+        self.home_team = team_one
+        self.away_team = team_two
+
+    def get_referee(self):
+        ref_tag = self.match_soup.find('a', {'id': re.compile(r'Hakem')})
+        ref_name = ref_tag.text[:-7]
+
+        self.referee = ref_name
+
+    def get_date(self):
+        date_tag = self.match_soup.find('span', id=lambda x: x and "Tarih" in x).text
+        date_splitted = date_tag.split("-")
+        date, time = date_splitted[0], date_splitted[1]
+
+        self.day = date
+        self.time = time
+
+    def get_goals(self):
+        goals = self.match_soup.findAll('a', id=lambda x: x and "Goller" in x)
+        team_one_goals, team_two_goals = [], []
+
+        for i in goals:
+            team_id = re.search(r'Takim.', str(i)).group(0)[-1]
+            if int(team_id) == 1:
+                team_one_goals.append(i.text)
+            else:
+                team_two_goals.append(i.text)
+
+        all_goals = [team_one_goals, team_two_goals]
+        self.goals = all_goals
+
+    def get_subs(self):
+        team_one_out, team_two_out = [], []
+        team_one_in, team_two_in = [], []
+
+        subs_in_tags = self.match_soup.find_all(['a', "span"], {'id': re.compile(r'Takim._rptCikanlar')})
+        team_id = 1
+
+        for e, i in enumerate(subs_in_tags):
+            if e == 0:
+                continue
+            if i.text == "Oyundan Çıkanlar":
+                team_id = 2
+                continue
+            if team_id == 1:
+                team_one_out.append(i.text)
+            else:
+                team_two_out.append(i.text)
+
+        subs_out_tags = self.match_soup.find_all(['a', "span"], {'id': re.compile(r'Takim._rptGirenler')})
+        team_id = 1
+
+        for e, i in enumerate(subs_out_tags):
+            if e == 0:
+                continue
+            if i.text == "Oyuna Girenler":
+                team_id = 2
+                continue
+
+            if team_id == 1:
+                team_one_in.append(i.text)
+            else:
+                team_two_in.append(i.text)
+
+        team_one_all = [team_one_in, team_one_out]
+        team_two_all = [team_two_in, team_two_out]
+
+        all_subs = [team_one_all, team_two_all]
+        self.subs = all_subs
+
+    def get_red_cards(self):
+        team_one_red, team_two_red = [], []
+        red_card_tags = self.match_soup.find_all('img', {'alt': ["Çift Sarı Kart", "Kırmızı Kart"]})
+
+        for i in red_card_tags:
+            team_id = re.search(r'Takim.', str(i)).group(0)[-1]
+            name_minute = i.text.strip()
+            name_minute_splitted = name_minute.split("\n")
+            
+            # Discard cards seen after the match
+
+            if name_minute_splitted[-1] == "MS":
+                continue
+
+            if int(team_id) == 1:
+                team_one_red.extend(name_minute_splitted)
+            else:
+                team_two_red.extend(name_minute_splitted)
+
+            all_red_cards = [team_one_red, team_two_red]
+            self.red_cards = all_red_cards
+
+    def __str__(self):
+        return f"""'Maç tarihi: ' {self.day}
+        'Maç saati: ' {self.time}
+        'Ev Sahibi: ' {self.home_team}
+        'Deplasman: ' {self.away_team}
+        'Hakem: ' {self.referee}
+        'Goller: ' {self.goals}
+        'Değişiklikler: ' {self.subs}
+        'Kırmızı Kartlar: ' {self.red_cards}"""
+
+
 def get_valid_season_urls():
 
     content = requests.get(MAIN_PAGE).content
@@ -51,38 +179,8 @@ def get_single_weeks_matches(week_url):
     return weeks_matches_urls
 
 
-match_url = "https://www.tff.org/Default.aspx?pageId=397&macId=61972"
+match_url = "https://www.tff.org/Default.aspx?pageId=29&macId=219182"
 
-content = requests.get(match_url).content
-soup = BeautifulSoup(content, "html.parser")
-
-# Golleri al
-
-goals = soup.findAll('a', id=lambda x: x and "Goller" in x)
-team_one_goals = []
-team_two_goals = []
-
-for i in goals:
-    team_name_id = re.search(r'Takim.', str(i))
-    team_id = team_name_id.group(0)[-1]
-    if int(team_id) == 1:
-        team_one_goals.append(i.text)
-    else:
-        team_two_goals.append(i.text)
-
-print(team_one_goals)
-print(team_two_goals)
-
-# Maç tarihini ve saatini al
-
-date_tag = soup.find('span', id=lambda x: x and "Tarih" in x).text
-date_splitted = date_tag.split("-")
-
-date, time = date_tag[0], date_tag[1]
-
-# Takımları al
-
-teams_tag = soup.find_all('a', {'id': re.compile(r'Takim.$')})
-team_one, team_two = teams_tag[0].text, teams_tag[1].text
-
-# Oyuncu Değişikliklerini al
+match = Match(match_url)
+match.parse_match_data()
+print(match)
