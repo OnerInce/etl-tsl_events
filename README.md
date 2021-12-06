@@ -43,3 +43,5 @@ You can spin down your local instance with:
 ```bash
 make down
 ```
+This project inspired from [Designing a Data Project to Impress Hiring Managers](https://www.startdataengineering.com/post/data-engineering-project-to-impress-hiring-managers/#41-formatting-linting-and-type-checks).
+
