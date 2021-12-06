@@ -1,17 +1,13 @@
-# set base image (host OS)
-FROM python:3.8
+FROM python:3.9.6-alpine3.13
 
-# set the working directory in the container
-WORKDIR /code
+ENV PYTHONUNBUFFERED 1
 
-# copy the dsependencies file to the working directory
+WORKDIR /app
+
 COPY requirements.txt .
 
-# install dependencies
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# copy the content of the local src directory to the working directory
-COPY src/ .
+COPY . .
 
-# command to run on container start
-CMD [ "python", "./main.py" ]
+CMD ["python", "./src/main.py" ]

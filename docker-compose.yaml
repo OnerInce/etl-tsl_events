@@ -1,19 +1,21 @@
-version: "3.8"
 services:
-  db:
-    build: db
-    restart: always
-    env_file: 
-      - db/database.env
-    ports: 
-      - 5432:5432
-    volumes:
-      - database-data:/var/lib/postgresql/data/
-
   app:
     build: app
+    container_name: tsl_event_etl
+    env_file:
+      - .env
     depends_on:
-      - db
-
-volumes:
-  database-data:
+      - mongodb
+  mongodb:
+    image: mongo:5.0.4-focal
+    container_name: tsl_event_mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    ports:
+      - 27017:27017
+    volumes:
+        - ./initdb.d/:/docker-entrypoint-initdb.d/
+        - ./data:/data/db/
